@@ -1,0 +1,19 @@
+{
+  "name": "money-man",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c cyan,magenta \"npm run dev -w @money-man/server\" \"npm run dev -w @money-man/client\"",
+    "build": "npm run build -w @money-man/shared && npm run build -w @money-man/server && npm run build -w @money-man/client",
+    "start": "node packages/server/dist/index.js",
+    "seed": "tsx packages/server/src/seed.ts"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.5"
+  }
+}
