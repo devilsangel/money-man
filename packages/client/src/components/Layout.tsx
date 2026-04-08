@@ -7,7 +7,12 @@ import {
   BarChart2,
   Upload,
   Settings,
+  Sun,
+  Moon,
+  Monitor,
 } from "lucide-react";
+import { useTheme } from "../hooks/useTheme.js";
+import { SpendingAlert } from "./SpendingAlert.js";
 
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -18,8 +23,14 @@ const navItems = [
   { to: "/import", icon: Upload, label: "Import" },
 ];
 
+const themeIcons = { light: Sun, dark: Moon, system: Monitor };
+const themeLabels = { light: "Light", dark: "Dark", system: "System" };
+
 export function Layout() {
   const location = useLocation();
+  const { theme, toggle } = useTheme();
+
+  const ThemeIcon = themeIcons[theme];
 
   // Determine page title
   const currentNav = navItems.find((n) => location.pathname.startsWith(n.to));
@@ -57,8 +68,8 @@ export function Layout() {
           ))}
         </nav>
 
-        {/* Settings at bottom */}
-        <div className="px-3 py-4 border-t border-sys-separator">
+        {/* Bottom: settings + theme toggle */}
+        <div className="px-3 py-4 border-t border-sys-separator space-y-1">
           <NavLink
             to="/settings"
             className={({ isActive }) =>
@@ -72,6 +83,16 @@ export function Layout() {
             <Settings size={18} />
             Settings
           </NavLink>
+
+          {/* Theme toggle */}
+          <button
+            onClick={toggle}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-btn text-callout font-medium text-sys-label hover:bg-sys-fill transition-colors"
+            title={`Theme: ${themeLabels[theme]} — click to cycle`}
+          >
+            <ThemeIcon size={18} />
+            {themeLabels[theme]} mode
+          </button>
         </div>
       </aside>
 
@@ -86,6 +107,7 @@ export function Layout() {
 
         {/* Content */}
         <main className="flex-1 overflow-auto p-6">
+          <SpendingAlert />
           <Outlet />
         </main>
       </div>

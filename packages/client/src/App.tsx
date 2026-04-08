@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { Layout } from "./components/Layout.js";
 import { DashboardPage } from "./pages/DashboardPage.js";
 import { AccountsPage } from "./pages/AccountsPage.js";
@@ -8,10 +9,35 @@ import { BudgetsPage } from "./pages/BudgetsPage.js";
 import { ReportsPage } from "./pages/ReportsPage.js";
 import { ImportPage } from "./pages/ImportPage.js";
 import { SettingsPage } from "./pages/SettingsPage.js";
+import { TransactionModal } from "./components/TransactionModal.js";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts.js";
 
-export function App() {
+// Inner component so it can use useNavigate (must be inside BrowserRouter)
+function AppRoutes() {
+  const [showAddModal, setShowAddModal] = useState(false);
+  const navigate = useNavigate();
+
+  useKeyboardShortcuts([
+    {
+      key: "n",
+      handler: () => setShowAddModal(true),
+    },
+    {
+      key: "/",
+      handler: () => {
+        // Focus the search input on the transactions page if present, otherwise navigate there
+        const searchInput = document.getElementById("txn-search");
+        if (searchInput) {
+          searchInput.focus();
+        } else {
+          navigate("/transactions");
+        }
+      },
+    },
+  ]);
+
   return (
-    <BrowserRouter>
+    <>
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
@@ -25,6 +51,18 @@ export function App() {
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>
+
+      {showAddModal && (
+        <TransactionModal onClose={() => setShowAddModal(false)} />
+      )}
+    </>
+  );
+}
+
+export function App() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
     </BrowserRouter>
   );
 }

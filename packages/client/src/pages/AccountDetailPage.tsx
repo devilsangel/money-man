@@ -3,8 +3,18 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import { accountsApi } from "../api/accounts.js";
 import { transactionsApi } from "../api/transactions.js";
+import { reportsApi } from "../api/reports.js";
 import { Button } from "../components/Button.js";
 import { Card } from "../components/Card.js";
 import { AmountDisplay } from "../components/AmountDisplay.js";
@@ -27,6 +37,19 @@ export function AccountDetailPage() {
     queryKey: ["accounts", accountId],
     queryFn: () => accountsApi.get(accountId),
   });
+
+  // Balance history for the chart (last 90 days)
+  const historyFrom = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const { data: balanceHistory } = useQuery({
+    queryKey: ["balance-history", accountId, historyFrom],
+    queryFn: () => reportsApi.accountBalanceHistory(accountId, historyFrom),
+    enabled: !!account,
+  });
+
+  const chartData = balanceHistory?.map((d) => ({
+    date: d.date,
+    balance: d.running_balance_cents / 100,
+  }));
 
   const { data: txns, isLoading: loadingTxns } = useQuery({
     queryKey: ["transactions", { account_id: accountId, page }],
@@ -87,14 +110,59 @@ export function AccountDetailPage() {
         </Button>
       </div>
 
-      {/* Balance card */}
+      {/* Balance card + history chart */}
       <Card>
-        <p className="text-footnote text-sys-label-secondary mb-1">Current Balance</p>
-        <AmountDisplay
-          cents={account.balance ?? 0}
-          showSign
-          className="text-large-title font-bold text-sys-label"
-        />
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <p className="text-footnote text-sys-label-secondary mb-1">Current Balance</p>
+            <AmountDisplay
+              cents={account.balance ?? 0}
+              showSign
+              className="text-large-title font-bold text-sys-label"
+            />
+          </div>
+          <span className="text-caption text-sys-label-tertiary">Last 90 days</span>
+        </div>
+
+        {chartData && chartData.length > 1 ? (
+          <ResponsiveContainer width="100%" height={120}>
+            <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="balGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#007AFF" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#007AFF" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--sys-separator)" vertical={false} />
+              <XAxis dataKey="date" hide />
+              <YAxis hide domain={["auto", "auto"]} />
+              <Tooltip
+                formatter={(v: number) =>
+                  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(v)
+                }
+                labelFormatter={(l) => l}
+                contentStyle={{
+                  backgroundColor: "var(--sys-bg)",
+                  border: "1px solid var(--sys-separator)",
+                  borderRadius: "10px",
+                  fontSize: "12px",
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="balance"
+                stroke="#007AFF"
+                fill="url(#balGrad)"
+                strokeWidth={2}
+                dot={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        ) : (
+          <p className="text-caption text-sys-label-tertiary mt-2">
+            Add transactions to see balance history.
+          </p>
+        )}
       </Card>
 
       {/* Transactions */}

@@ -130,8 +130,15 @@ importRouter.post("/csv/confirm", upload.single("file"), (req, res): void => {
        VALUES (?, ?, ?, ?, ?, ?)`
     );
 
+    const dupCheck = db.prepare(
+      `SELECT id FROM transactions
+       WHERE account_id = ? AND date = ? AND amount = ? AND (payee = ? OR (payee IS NULL AND ? IS NULL))
+       LIMIT 1`
+    );
+
     let imported = 0;
     let skipped = 0;
+    let duplicates = 0;
 
     const insertAll = db.transaction(() => {
       for (const row of records) {
@@ -166,13 +173,17 @@ importRouter.post("/csv/confirm", upload.single("file"), (req, res): void => {
         const notes = mapping.notes ? row[mapping.notes]?.trim() ?? null : null;
         const type = amountCents >= 0 ? "income" : "expense";
 
+        // Duplicate detection
+        const existing = dupCheck.get(account_id, date, amountCents, payee, payee);
+        if (existing) { duplicates++; continue; }
+
         insert.run(account_id, amountCents, payee, notes, date, type);
         imported++;
       }
     });
 
     insertAll();
-    res.json({ imported, skipped });
+    res.json({ imported, skipped, duplicates });
   } finally {
     fs.unlink(req.file.path, () => {});
   }

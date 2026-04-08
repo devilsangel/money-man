@@ -12,6 +12,7 @@ export interface TransactionFilters {
   from?: string;
   to?: string;
   type?: string;
+  q?: string;
   page?: number;
   limit?: number;
 }
@@ -30,4 +31,11 @@ export const transactionsApi = {
   update: (id: number, data: UpdateTransaction) =>
     api.patch<Transaction>(`/transactions/${id}`, data),
   delete: (id: number) => api.delete(`/transactions/${id}`),
+  exportUrl: (filters: Omit<TransactionFilters, "page" | "limit">, format: "csv" | "json") => {
+    const params = new URLSearchParams({ format });
+    for (const [k, v] of Object.entries(filters)) {
+      if (v !== undefined && v !== "") params.set(k, String(v));
+    }
+    return `/api/v1/transactions/export?${params}`;
+  },
 };

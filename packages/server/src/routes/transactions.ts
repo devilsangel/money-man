@@ -12,6 +12,7 @@ transactionsRouter.get("/", (req, res) => {
     from,
     to,
     type,
+    q,
     page = "1",
     limit = "50",
   } = req.query as Record<string, string>;
@@ -38,6 +39,10 @@ transactionsRouter.get("/", (req, res) => {
   if (type) {
     conditions.push("t.type = ?");
     params.push(type);
+  }
+  if (q) {
+    conditions.push("(t.payee LIKE ? OR t.notes LIKE ?)");
+    params.push(`%${q}%`, `%${q}%`);
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -67,6 +72,64 @@ transactionsRouter.get("/", (req, res) => {
     .all(...params, limitNum, offset);
 
   res.json({ data: rows, total: countRow.total, page: pageNum, limit: limitNum });
+});
+
+transactionsRouter.get("/export", (req, res) => {
+  const { account_id, category_id, from, to, type, q, format = "csv" } =
+    req.query as Record<string, string>;
+
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (account_id) { conditions.push("t.account_id = ?"); params.push(account_id); }
+  if (category_id) { conditions.push("t.category_id = ?"); params.push(category_id); }
+  if (from) { conditions.push("t.date >= ?"); params.push(from); }
+  if (to) { conditions.push("t.date <= ?"); params.push(to); }
+  if (type) { conditions.push("t.type = ?"); params.push(type); }
+  if (q) { conditions.push("(t.payee LIKE ? OR t.notes LIKE ?)"); params.push(`%${q}%`, `%${q}%`); }
+
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  const rows = db
+    .prepare(
+      `SELECT t.date, t.type, t.amount, t.payee, t.notes,
+         c.name AS category, a.name AS account
+       FROM transactions t
+       LEFT JOIN categories c ON c.id = t.category_id
+       LEFT JOIN accounts   a ON a.id = t.account_id
+       ${where}
+       ORDER BY t.date DESC, t.id DESC`
+    )
+    .all(...params) as Record<string, unknown>[];
+
+  if (format === "json") {
+    res.setHeader("Content-Disposition", 'attachment; filename="transactions.json"');
+    res.setHeader("Content-Type", "application/json");
+    res.json(rows);
+    return;
+  }
+
+  // CSV format
+  const headers = ["date", "type", "amount", "payee", "notes", "category", "account"];
+  const escape = (v: unknown) => {
+    const s = v == null ? "" : String(v);
+    return s.includes(",") || s.includes('"') || s.includes("\n")
+      ? `"${s.replace(/"/g, '""')}"`
+      : s;
+  };
+  const csv = [
+    headers.join(","),
+    ...rows.map((r) =>
+      headers.map((h) => {
+        const val = h === "amount" ? ((r[h] as number) / 100).toFixed(2) : r[h];
+        return escape(val);
+      }).join(",")
+    ),
+  ].join("\n");
+
+  res.setHeader("Content-Disposition", 'attachment; filename="transactions.csv"');
+  res.setHeader("Content-Type", "text/csv");
+  res.send(csv);
 });
 
 transactionsRouter.get("/:id", (req, res) => {

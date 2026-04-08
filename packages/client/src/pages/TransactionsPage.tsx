@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Filter } from "lucide-react";
+import { Plus, Trash2, Filter, Search, Download } from "lucide-react";
 import { toast } from "sonner";
 import { transactionsApi } from "../api/transactions.js";
 import { accountsApi } from "../api/accounts.js";
@@ -21,6 +21,7 @@ export function TransactionsPage() {
   const [editingTxn, setEditingTxn] = useState<Transaction | undefined>();
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
 
   const [filters, setFilters] = useState({
     account_id: "",
@@ -28,6 +29,7 @@ export function TransactionsPage() {
     type: "",
     from: "",
     to: "",
+    q: "",
   });
 
   const { data: accounts } = useQuery({
@@ -49,10 +51,36 @@ export function TransactionsPage() {
         type: filters.type || undefined,
         from: filters.from || undefined,
         to: filters.to || undefined,
+        q: filters.q || undefined,
         page,
         limit: 50,
       }),
   });
+
+  const handleSearch = (value: string) => {
+    setSearchInput(value);
+    // Debounce: only update filter after user stops typing
+    clearTimeout((window as unknown as Record<string, ReturnType<typeof setTimeout>>)["_searchTimer"]);
+    (window as unknown as Record<string, ReturnType<typeof setTimeout>>)["_searchTimer"] = setTimeout(() => {
+      setFilters((f) => ({ ...f, q: value }));
+      setPage(1);
+    }, 300);
+  };
+
+  const handleExport = (format: "csv" | "json") => {
+    const url = transactionsApi.exportUrl(
+      {
+        account_id: filters.account_id ? parseInt(filters.account_id) : undefined,
+        category_id: filters.category_id ? parseInt(filters.category_id) : undefined,
+        type: filters.type || undefined,
+        from: filters.from || undefined,
+        to: filters.to || undefined,
+        q: filters.q || undefined,
+      },
+      format
+    );
+    window.location.assign(url);
+  };
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => transactionsApi.delete(id),
@@ -73,8 +101,22 @@ export function TransactionsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-title-1 text-sys-label">Transactions</h2>
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="text-title-1 text-sys-label flex-shrink-0">Transactions</h2>
+
+        {/* Search bar */}
+        <div className="flex-1 max-w-sm relative">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-sys-label-tertiary pointer-events-none" />
+          <input
+            id="txn-search"
+            type="search"
+            placeholder="Search payee or notes…"
+            value={searchInput}
+            onChange={(e) => handleSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-1.5 text-callout bg-sys-bg-secondary border border-sys-separator rounded-input text-sys-label placeholder:text-sys-label-tertiary focus:outline-none focus:ring-2 focus:ring-system-blue/30 focus:border-system-blue transition-all"
+          />
+        </div>
+
         <div className="flex gap-2">
           <Button
             variant="secondary"
@@ -84,6 +126,27 @@ export function TransactionsPage() {
             <Filter size={16} />
             Filters
           </Button>
+          {/* Export dropdown */}
+          <div className="relative group">
+            <Button variant="secondary" size="sm">
+              <Download size={16} />
+              Export
+            </Button>
+            <div className="absolute right-0 top-full mt-1 bg-sys-bg border border-sys-separator rounded-card shadow-card hidden group-hover:flex flex-col z-20 min-w-[120px] overflow-hidden">
+              <button
+                className="px-4 py-2 text-callout text-sys-label hover:bg-sys-fill text-left"
+                onClick={() => handleExport("csv")}
+              >
+                Export CSV
+              </button>
+              <button
+                className="px-4 py-2 text-callout text-sys-label hover:bg-sys-fill text-left"
+                onClick={() => handleExport("json")}
+              >
+                Export JSON
+              </button>
+            </div>
+          </div>
           <Button variant="primary" size="sm" onClick={() => setShowModal(true)}>
             <Plus size={16} />
             Add

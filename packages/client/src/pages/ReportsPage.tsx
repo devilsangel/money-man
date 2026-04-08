@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NavLink, Routes, Route, Navigate } from "react-router-dom";
+import { Printer } from "lucide-react";
 import {
   PieChart,
   Pie,
@@ -303,10 +304,19 @@ const TAB_INACTIVE = "text-sys-label hover:bg-sys-fill";
 export function ReportsPage() {
   return (
     <div className="space-y-5">
-      <h2 className="text-title-1 text-sys-label">Reports</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-title-1 text-sys-label">Reports</h2>
+        <button
+          onClick={() => window.print()}
+          className="no-print flex items-center gap-2 px-3 py-1.5 text-footnote font-medium text-sys-label-secondary hover:bg-sys-fill rounded-btn transition-colors"
+        >
+          <Printer size={15} />
+          Print
+        </button>
+      </div>
 
       {/* Tab bar */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 no-print">
         <NavLink
           to="spending"
           className={({ isActive }) =>
